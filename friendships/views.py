@@ -1,9 +1,9 @@
 from friends_user.models import Friends_user
 from .models import Friendship
-from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
+from django.db.models import Q
 
 
 # Create your views here.
@@ -52,30 +52,52 @@ def get_all_pending_request(request):
     return Response({"pending_requests": pending_friend_requests}, status=200)
 
 
-## AI
-@api_view(["POST"])
+@api_view(["PATCH"])
 @permission_classes([IsAuthenticated])
 def respond_friend_request(request):
     friendship_id = request.data.get("friendship_id")
     action = request.data.get("action")
 
     if not friendship_id or not action:
-        return Response({"error": "friendship_id and action required"}, status=400)
+        return Response({"error": "friendship id and action not mentioned"}, status=400)
 
-    if action not in ["ACCEPT", "REJECT"]:
-        return Response({"error": "Invalid action"}, status=400)
+    if action not in ["ACCEPTED", "REJECT"]:
+        return Response({"error": "Fuck not an option"}, status=400)
 
     try:
         fr = Friendship.objects.get(id=friendship_id, to_friend=request.user, status='PENDING')
     except Friendship.DoesNotExist:
         return Response({"error": "Friend request not found"}, status=404)
 
-    if action == "ACCEPT":
+    if action == "ACCEPTED":
         fr.status = "ACCEPTED"
         fr.save()
         return Response({"message": f"You are now friends with {fr.from_friend.username}"}, status=200)
 
-    else:  # REJECT
-        fr.status = "BLOCKED"  # or 'REJECTED' if you add it
+    else:
+        fr.status = "BLOCKED"
         fr.save()
         return Response({"message": f"Friend request from {fr.from_friend.username} rejected"}, status=200)
+    
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_all_friends(request):
+    user = request.user
+
+    friends_accepted = Friendship.objects.filter(
+        Q(from_friend=user) | Q(to_friend=user),
+        status='ACCEPTED'
+    )
+
+    friend_accepted_data = [
+        {
+            "username": fr.to_friend.username if fr.from_friend == user else fr.from_friend.username,
+            "pfp": (fr.to_friend.pfp.url if fr.from_friend == user else fr.from_friend.pfp.url) if fr.to_friend.pfp or fr.from_friend.pfp else None,
+            "friendship_id": fr.id,
+            "connected_since": fr.from_date
+        } for fr in friends_accepted
+    ]
+
+    return Response({"friends": friend_accepted_data}, status=200)

@@ -107,3 +107,82 @@ def dashboard_views(request):
         }
     }, status=200)
     
+
+@api_view(["PATCH"])
+@permission_classes([IsAuthenticated])
+def update_profile_views(request):
+    user = request.user
+    
+    if "emailid" in request.data:
+        user.emailid = request.data["emailid"]
+
+    if "phone_no" in request.data:
+        user.phone_no = request.data["phone_no"]
+
+    if "info" in request.data:
+        user.info = request.data["info"]
+
+    if "pfp" in request.FILES:
+        user.pfp = request.FILES["pfp"]
+
+    if "username" in request.data:
+        username = request.data.get("username")
+
+        if Friends_user.objects.filter(username=username).exclude(id=user.id).exists():
+            return Response({"error": "Username already taken"}, status=400)
+
+#       if Friends_user.objects.filter(username=username).exists():   I kept this to show how stupid i am
+#           return Response({"error": "username take boy"}, status=400)  This will not allow me to put my name again 
+        
+        user.username = username
+
+    user.save()
+    return Response({"message": "Profile updated"})
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def profile_views(request):
+    user = request.user
+
+    data = {
+        "id": user.id,
+        "username": user.username,
+        "emailid": user.emailid,
+        "phone_no": user.phone_no,
+        "info": user.info,
+        "pfp": user.pfp.url if user.pfp else None,
+        "created_at": user.created_at,
+        "updated_at": user.updated_at
+    }
+
+    return Response(data, status=200)
+
+
+@api_view(['DELETE'])
+@permission_classes([IsAuthenticated])
+def delete_user_views(request):
+    user = request.user
+
+    user.delete()
+
+    return Response({"message": "No more one of us. Yor friends forgot you. i have added CASCADE. You Monkey🐒🐒"})
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def list_users_views(request):
+    query = request.query_params.get('q', '')
+
+    users_list = Friends_user.objects.filter(username__icontains=q).exclude(id=request.user.id)
+    data = [
+        {
+            "id": u.id,
+            "username": u.username,
+            "emailid": u.emailid,
+            "pfp": u.pfp.url if u.pfp else None
+        } for u in users_list
+    ]
+
+    return Response({"users": data}, status=200)
+
