@@ -17,5 +17,7 @@ If you can help by making changes suggesting changes. I will be glad.
 I dont know how will i complete it or how will i host it. But i am super pumped.
 So much fucking Pumped
 
+I know right now it is db.sqlite but it will be changed soon. This is to just create a basic mvp.
+And make a Quick tesing thingi.
 
 💥💥💥💥Fuck yes This will be a banger💥💥💥💥
