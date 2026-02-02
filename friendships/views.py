@@ -6,17 +6,24 @@ from rest_framework.permissions import IsAuthenticated
 from django.db.models import Q
 
 
-# Create your views here.
+'''
+1. sending request
+2. get pending request
+3. response to friend request
+4. get all friend
+5. balancing the request
+'''
 
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
 def sending_friends_request(request):
     to_friend = request.data.get("to_username")
+    from_friend = request.user
 
     if not to_friend:
         return Response({"error": "I know you dont have Friends"}, status=400)
     
-    if to_friend == request.user.username:
+    if to_friend == from_friend.username:
         return Response({"error": "You cannot be your own friend"}, status=400)
 
     try:
@@ -24,32 +31,37 @@ def sending_friends_request(request):
     except Friends_user.DoesNotExist:
         return Response({"error": "No User"}, status=404)
     
-    if Friendship.objects.filter(from_friend=request.user, to_friend=to_user).exists():
-        return Response({"error": "Chillout Alredy sent"}, status=400)
-    
-    if Friendship.objects.filter(from_friend=to_user, to_friend=request.user, status='ACCEPTED').exists():
-        return Response({"error": "I also whish some of my friends meet me again like that time"}, status=400)
+    friend1, friend2 = (from_friend, to_user) if from_friend.id < to_user.id else (to_user, from_friend)
 
-    Friendship.objects.create(from_friend=request.user, to_friend=to_user, status='PENDING')
-    return Response({"message": f"Friend request sent to {to_user.username}"}, status=201)
+    if Friendship.objects.filter(friend1=friend1, friend2=friend2):
+        return Response({"error": "Friendship Exists"}, status=400)
+
+    Friendship.objects.create(
+        friend1=friend1,
+        friend2=friend2,
+        sender=from_friend,
+        status="PENDING"
+    )
+
+    return Response({"message": "User Created! One of us! One of us!"}, status=201)
 
 
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
-def get_all_pending_request(request):
+def get_all_pending_request_to_me(request):
     user = request.user
 
-    friends_pending = Friendship.objects.filter(to_friend=user, status='PENDING')
+    friends_pending = Friendship.objects.filter( status='PENDING').exclude(sender=user)
 
-    pending_friend_requests = [
+    pending_friend_requests_to_me = [
         {
-            "from_friend": fr.from_friend.username,
+            "from_friend": fr.sender.username,
             "sent_at": fr.from_date,
             "friendship_id": fr.id
         } for fr in friends_pending
     ]
 
-    return Response({"pending_requests": pending_friend_requests}, status=200)
+    return Response({"pending_requests": pending_friend_requests_to_me}, status=200)
 
 
 @api_view(["PATCH"])
@@ -74,8 +86,8 @@ def respond_friend_request(request):
         fr.save()
         return Response({"message": f"You are now friends with {fr.from_friend.username}"}, status=200)
 
-    else:
-        fr.status = "BLOCKED"
+    elif action == "REJECT":
+        fr.status = "REJECT"
         fr.save()
         return Response({"message": f"Friend request from {fr.from_friend.username} rejected"}, status=200)
     
@@ -83,7 +95,7 @@ def respond_friend_request(request):
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
-def get_all_friends(request):
+def get_all_friends_accepted(request):
     user = request.user
 
     friends_accepted = Friendship.objects.filter(
@@ -93,11 +105,32 @@ def get_all_friends(request):
 
     friend_accepted_data = [
         {
-            "username": fr.to_friend.username if fr.from_friend == user else fr.from_friend.username,
-            "pfp": (fr.to_friend.pfp.url if fr.from_friend == user else fr.from_friend.pfp.url) if fr.to_friend.pfp or fr.from_friend.pfp else None,
+            "username": fr.friend2.username if fr.friend1 == user else fr.friend1.username,
+            "pfp": (fr.friend2.pfp.url if fr.friend1 == user else fr.friend1.pfp.url),
             "friendship_id": fr.id,
-            "connected_since": fr.from_date
+            "connected_since": fr.from_date,
+            "sender": fr.sender.username
         } for fr in friends_accepted
     ]
 
     return Response({"friends": friend_accepted_data}, status=200)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_all_friend_waiting(request):
+    user = request.user
+
+    friends_pending = Friendship.objects.filter(sender=user, status="PENDING")
+
+    friends_pending_sent_data = [
+        {
+            "username": fr.friend2.username if fr.friend1 == user else fr.friend1.username,
+            "sent_at": fr.from_date,
+            "friendship_id": fr.id
+        } for fr in friends_pending
+    ]
+
+    return Response({"friends_pending_you_sent": friends_pending_sent_data})
+
+

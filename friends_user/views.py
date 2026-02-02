@@ -174,7 +174,7 @@ def delete_user_views(request):
 def list_users_views(request):
     query = request.query_params.get('q', '')
 
-    users_list = Friends_user.objects.filter(username__icontains=q).exclude(id=request.user.id)
+    users_list = Friends_user.objects.filter(username__icontains=query).exclude(id=request.user.id)
     data = [
         {
             "id": u.id,

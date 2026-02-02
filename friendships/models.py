@@ -3,11 +3,12 @@ from django.db.models import Q, F
 
 # Create your models here.
 
-
+## There is a cool thing that if i dont change it there will be a kind of issue that A -> B and B -> A would be kind of treated differently
 class Friendship(models.Model):
     id = models.BigAutoField(primary_key=True)
-    from_friend = models.ForeignKey('friends_user.Friends_user', on_delete=models.CASCADE, related_name="from_friend")
-    to_friend = models.ForeignKey('friends_user.Friends_user', on_delete=models.CASCADE, related_name="to_friend")
+    friend1 = models.ForeignKey('friends_user.Friends_user', on_delete=models.CASCADE, related_name="friend1")
+    friend2 = models.ForeignKey('friends_user.Friends_user', on_delete=models.CASCADE, related_name="friend2")
+    sender = models.ForeignKey('friends_user,Friends_user', on_delete=models.CASCADE, related_name="request_sender")
     status_choices = [
         ('PENDING', 'Pending'),
         ('ACCEPTED', 'Accepted'),
